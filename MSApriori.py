@@ -9,8 +9,11 @@ def ms_apriori(transactions, mis, sdc):
     # Fk = []
     F = []
     supp_counts = {}
+    tl_counts = {}
     M = sort(mis)
     N = len(transactions)
+    # print transactions
+    # print N
     L, sup_count = init_pass(transactions, M, mis, N)
     F.append(frequent_itemSets_1(L, sup_count, N))
 
@@ -19,26 +22,33 @@ def ms_apriori(transactions, mis, sdc):
     k = 1  # NOTE: k run one number lower as array index start from 0
     while F[k - 1]:
         # print k
+        # temp_count = {}
         Fk = []
         if k == 1:
             C.append(level2CandidateGen(L, sdc, sup_count, N, mis))
         else:
-            C.append(MSCandidateGen(F[k - 1], sdc, sup_count, mis))
+            C.append(MSCandidateGen(F[k - 1], sdc, sup_count, N,  mis))
         # print C
         for txn in transactions:
+            visited = set()
             for c in C[k]:
                 c = tuple(c)
                 if subset_check(txn, c):
                     if c not in supp_counts:
                         supp_counts[c] = 1
+
                     else:
                         supp_counts[c] += 1
-                if subset_check(txn, c[1:]):
-                    if c[1:] not in supp_counts:
-                        supp_counts[c[1:]] = 1
-                    else:
-                        supp_counts[c[1:]] += 1
 
+                if subset_check(txn, c[1:]):
+                    if c[1:] not in visited:
+                        visited.add(c[1:])
+                        if c[1:] not in tl_counts:
+                            tl_counts[c[1:]] = 1
+                        else:
+                            tl_counts[c[1:]] = tl_counts.get(c[1:]) + 1
+
+        # print temp_count
         for c in C[k]:
             c = tuple(c)
             if c in supp_counts and float(supp_counts[c]) / N >= mis[c[0]]:
@@ -50,7 +60,7 @@ def ms_apriori(transactions, mis, sdc):
     # print F['F1']
     for i in sup_count:
         supp_counts[tuple([i])] = sup_count[i]
-    return F, supp_counts
+    return F, supp_counts, tl_counts
 
 
 def subset_check(txn, c):
@@ -66,16 +76,18 @@ def filter_constraints(freq_itemsets, cannot_be_together_list, must_haves_list):
     for fk in freq_itemsets:
         for i_set in fk:
             flag = False
-            for disjoint_items in cannot_be_together_list:
-                flag_d = subset_check(i_set, tuple([disjoint_items[0]]))
-                for x in disjoint_items[1:]:
-                    flag_d = flag_d and subset_check(i_set, tuple([x]))
-                if flag_d:
-                    i_sets_to_remove.add(i_set)
-            for must_have_item in must_haves_list:
-                flag = flag or subset_check(i_set, tuple([must_have_item]))
-            if not flag:
-                i_sets_to_remove.add(i_set)
+            for cbt in cannot_be_together_list:
+                cbt_pair_list = list(itertools.combinations(cbt, 2))
+                # print cbt_pair_listtesting
+                for disjoint_items in cbt_pair_list:
+                    flag_d = subset_check(i_set, tuple([disjoint_items[0]])) and subset_check(i_set, tuple([disjoint_items[1]]))
+                    if flag_d:
+                        i_sets_to_remove.add(i_set)
+                if must_haves_list:
+                    for must_have_item in must_haves_list:
+                        flag = flag or subset_check(i_set, tuple([must_have_item]))
+                    if not flag:
+                        i_sets_to_remove.add(i_set)
 
     for i_set in i_sets_to_remove:
         for fk in freq_itemsets:
@@ -123,12 +135,12 @@ def level2CandidateGen(L, sdc, sup_count, N, mis):
             indexOfI = L.index(i)
             postL = L[indexOfI + 1:]
             for h in postL:
-                if float(sup_count[h]) / N >= mis[i] and abs(float(sup_count[h]) - float(sup_count[i])) <= sdc:
+                if float(sup_count[h]) / N >= mis[i] and abs(float(sup_count[h])/N - float(sup_count[i])/N) <= sdc:
                     C2.append(tuple([i, h]))
     return C2
 
 
-def MSCandidateGen(Fk1, sdc, sup_count, mis):
+def MSCandidateGen(Fk1, sdc, sup_count, N, mis):
     Ck = []
     Fk = []
     for f1 in Fk1:
@@ -136,13 +148,13 @@ def MSCandidateGen(Fk1, sdc, sup_count, mis):
         postF1 = Fk1[indexOfF1 + 1:]
         for f2 in postF1:
             if f1[:-1] == f2[:-1]:
-                if f1 and f2 and f1[-1] < f2[-1] and abs(float(sup_count[f1[-1]]) - float(sup_count[f2[-1]])) <= sdc:
-                    c = f1
+                if f1 and f2 and (f1[-1] < f2[-1] or f1[-1] > f2[-1]) and abs(float(sup_count[f1[-1]])/N - float(sup_count[f2[-1]])/N) <= sdc:
+                    c = list(f1)
                     c.append(f2[-1])
-                    Ck.append(c)
+                    Ck.append(tuple(c))
                     for s in list(itertools.combinations(c, len(c) - 1)):
                         if c[0] in s or mis[c[1]] == mis[c[0]]:
-                            if s not in Fk1:
+                            if s not in Fk1 and s in Ck:
                                 Ck.remove(s)
     # print Ck
     return Ck
@@ -160,12 +172,13 @@ if __name__ == '__main__':
 
     mis, sdc, cannot_be_together_list, must_haves_list = FileParser.parse_params(args['params'])
     txn_list = FileParser.parse_txns(args['input'])
-    freq_itemsets, support_counts = ms_apriori(txn_list, mis, sdc)
+    freq_itemsets, support_counts, tail_counts = ms_apriori(txn_list, mis, sdc)
     # print "freq_itemsets: %s" % freq_itemsets
+    # print "freq_itemsets length: %s" % len(freq_itemsets)
     # freq_itemsets = [[('20'), ('40'), ('50'), ('10')], [('20', '40'), ('40', '70'), ('70', '80'), ('10', '120')],
     #  [('20', '30', '80'), ('20', '40', '80'), ('30', '70', '80'), ('20', '40', '50')]]
     filtered_freq_itemsets = filter_constraints(freq_itemsets, cannot_be_together_list, must_haves_list)
-    # print filtered_freq_itemsets
+    # print "filtered_freq_itemsets: %s" % filtered_freq_itemsets
     # filtered_freq_itemsets = [[('20'), ('40'), ('50'), ('10')], [('20', '40'), ('40', '70'), ('70', '80'), ('10', '120')],
     #                  [('20', '30', '80'), ('20', '40', '80'), ('30', '70', '80'), ('20', '40', '50')]]
     # print "support_counts: %s" % support_counts
@@ -175,26 +188,31 @@ if __name__ == '__main__':
     else:
         f = open('output-patterns.txt', 'w')
 
-    for i in range(len(filtered_freq_itemsets) - 1):
+    for i in range(len(filtered_freq_itemsets)):
+        if filtered_freq_itemsets[i]:
+            print "Frequent %s-itemsets\n" % str(i + 1)
+            f.write("Frequent {}-itemsets\n\n".format(str(i + 1)))
+            for item_set in filtered_freq_itemsets[i]:
+                sup = support_counts[item_set]
+                # sup = 5
+                if item_set[1:] in tail_counts:
+                    tail_count = tail_counts[item_set[1:]]
+                else:
+                    tail_count = None
+                # tail_count = None
+                is_str = ("{" + str(item_set).replace('(', '').replace(')', '').replace('\'', '') + "}").replace(',}', '}')
 
-        print "Frequent %s-itemsets\n" % str(i + 1)
-        f.write("Frequent {}-itemsets\n\n".format(str(i + 1)))
-        for item_set in filtered_freq_itemsets[i]:
-            sup = support_counts[item_set]
-            # sup = 5
-            if item_set[1:] in support_counts:
-                tail_count = support_counts[item_set[1:]]
-            else:
-                tail_count = None
-            # tail_count = None
-            is_str = ("{" + str(item_set).replace('(', '').replace(')', '').replace('\'', '') + "}").replace(',}', '}')
+                print "\t\t%s : %s" % (sup, is_str)
+                f.write("\t\t{} : {}\n".format(sup, is_str))
+                if tail_count:
+                    print "Tailcount = %s" % tail_count
+                    f.write("Tailcount = {}\n".format(tail_count))
 
-            print "\t\t%s : %s" % (sup, is_str)
-            f.write("\t\t{} : {}\n".format(sup, is_str))
-            if tail_count:
-                print "Tailcount = %s" % tail_count
-                f.write("Tailcount = {}\n".format(tail_count))
-
-        print "\n\n\t\tTotal number of frequent %s-itemsets = %s\n\n" % (str(i + 1), len(filtered_freq_itemsets[i]))
-        f.write("\n\n\t\tTotal number of frequent {}-itemsets = {}\n\n\n".format(str(i + 1), len(filtered_freq_itemsets[i])))
+            print "\n\n\t\tTotal number of frequent %s-itemsets = %s\n\n" % (str(i + 1), len(filtered_freq_itemsets[i]))
+            f.write("\n\n\t\tTotal number of frequent {}-itemsets = {}\n\n\n".format(str(i + 1), len(filtered_freq_itemsets[i])))
+        elif i is 0:
+            print "Frequent %s-itemsets\n" % 1
+            f.write("Frequent {}-itemsets\n\n".format(1))
+            print "\n\t\tTotal number of frequent %s-itemsets = %s\n\n" % (1, 0)
+            f.write("\n\t\tTotal number of frequent {}-itemsets = {}\n\n\n".format(1, 0))
     f.close()

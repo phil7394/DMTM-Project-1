@@ -19,6 +19,8 @@ def parse_params(params_file_path):
                 sdc = float(m.group(1))
             else:
                 m = re.search('cannot_be_together:\s(.*)\r', line)
+                if m is None:
+                    m = re.search('cannot_be_together:\s(.*)\Z', line)
                 if m is not None:
                     items_str = m.group(1).replace('}, {', '};{')
                     item_sets = items_str.split(';')
@@ -26,10 +28,12 @@ def parse_params(params_file_path):
                         # print i
                         p = i.replace('{', '')
                         q = p.replace('}', '')
-                        cannot_be_together_list.append(tuple(q.split(', ')))
+                        cannot_be_together_list.append(q.split(', '))
                         # print cannot_be_together_list
                 else:
-                    m = re.search('must-have:\s(.*)\Z', line)
+                    m = re.search('must-have:\s(.*)\r', line)
+                    if m is None:
+                        m = re.search('must-have:\s(.*)\Z', line)
                     if m is not None:
                         must_haves = m.group(1).split(' or ')
                         for i in must_haves:
