@@ -29,7 +29,7 @@ def parse_params(params_file_path):
                         cannot_be_together_list.append(tuple(q.split(', ')))
                         # print cannot_be_together_list
                 else:
-                    m = re.search('must-have:\s(.*)\r', line)
+                    m = re.search('must-have:\s(.*)\Z', line)
                     if m is not None:
                         must_haves = m.group(1).split(' or ')
                         for i in must_haves:
