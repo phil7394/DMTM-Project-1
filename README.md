@@ -4,7 +4,7 @@ MSApriori implementation
 
 How to use:
 ```
-python MSApriori.py -i "path/to/input-data.txt" -p "path/to/parameters-file.txt" -o "path/to/output-patterns.txt"
+python MSApriori.py -i "path/to/input-data.txt" -p "path/to/parameter-file.txt" -o "path/to/output-patterns.txt"
 ```
 
 for more info:
