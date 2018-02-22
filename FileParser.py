@@ -17,9 +17,9 @@ def parse_params(params_file_path):
             if m is not None:
                 sdc = float(m.group(1))
             else:
-                m = re.search('cannot_be_together:\s(.*)\r', line)
-                if m is None:
-                    m = re.search('cannot_be_together:\s(.*)\Z', line)
+                m = re.search('cannot_be_together:\s(.*)(\r\n|\n|\r|\Z)', line)
+                # if m is None:
+                #     m = re.search('cannot_be_together:\s(.*)\Z', line)
                 if m is not None:
                     items_str = m.group(1).replace('}, {', '};{')
                     item_sets = items_str.split(';')
@@ -29,9 +29,9 @@ def parse_params(params_file_path):
                         cannot_be_together_list.append(q.split(', '))
                         # print cannot_be_together_list
                 else:
-                    m = re.search('must-have:\s(.*)\r', line)
-                    if m is None:
-                        m = re.search('must-have:\s(.*)\Z', line)
+                    m = re.search('must-have:\s(.*)(\r\n|\n|\r|\Z)', line)
+                    # if m is None:
+                    #     m = re.search('must-have:\s(.*)\Z', line)
                     if m is not None:
                         must_haves = m.group(1).split(' or ')
                         for i in must_haves:
@@ -43,10 +43,15 @@ def parse_params(params_file_path):
 # parse transactions
 def parse_txns(input_file_path):
     txns_file = open(input_file_path)
-    transactions = txns_file.read().replace('{', '').replace('}', '').split('\r\n')
+    # transactions = txns_file.read().replace('{', '').replace('}', '').split('\r\n')
     txn_list = []
-    for t in transactions:
-        txn_list.append(tuple(t.split(', ')))
+    for line in txns_file:
+        m = re.search('{(.*)}', line)
+        if m is not None:
+            txn_list.append(tuple(m.group(1).split(', ')))
+
+    # for t in transactions:
+    #     txn_list.append(tuple(t.split(', ')))
     return txn_list
 
 
