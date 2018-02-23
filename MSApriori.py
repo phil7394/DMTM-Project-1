@@ -125,7 +125,7 @@ def frequent_itemSets_1(L, sup_count, N):
 def level2CandidateGen(L, sdc, sup_count, N, mis):
     C2 = []
     for i in L:
-        if float(sup_count[i]) / N >= mis[i]:
+       if float(sup_count[i]) / N >= mis[i]:
             indexOfI = L.index(i)
             postL = L[indexOfI + 1:]
             for h in postL:
